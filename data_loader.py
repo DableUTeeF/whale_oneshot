@@ -31,6 +31,7 @@ class MatchingNetworkDatasetParallel(Dataset):
         :param num_of_gpus: Number of gpus to use for training
         """
         self.data_path = data_path
+        self.whole_path = os.path.join(data_path, dataset_name)
         self.dataset_name = dataset_name
         self.indexes_of_folders_indicating_class = indexes_of_folders_indicating_class
         self.labels_as_int = labels_as_int
@@ -83,9 +84,9 @@ class MatchingNetworkDatasetParallel(Dataset):
         return x_train, x_val, x_test
 
     def load_datapaths(self):
-        data_path_file = "datasets/{}.pkl".format(self.dataset_name)
-        self.index_to_label_name_dict_file = "datasets/map_to_label_name_{}.pkl".format(self.dataset_name)
-        self.label_name_to_map_dict_file = "datasets/label_name_to_map_{}.pkl".format(self.dataset_name)
+        data_path_file = "{}/{}.pkl".format(self.data_path, self.dataset_name)
+        self.index_to_label_name_dict_file = "{}/map_to_label_name_{}.pkl".format(self.data_path, self.dataset_name)
+        self.label_name_to_map_dict_file = "{}/label_name_to_map_{}.pkl".format(self.data_path, self.dataset_name)
 
         if self.reset_stored_filepaths is True:
             if os.path.exists(data_path_file):
@@ -133,10 +134,10 @@ class MatchingNetworkDatasetParallel(Dataset):
             return None
 
     def get_data_paths(self):
-        print("Get images from", self.data_path)
+        print("Get images from", self.whole_path)
         data_image_path_list_raw = []
         labels = set()
-        for subdir, dir, files in os.walk(self.data_path):
+        for subdir, dir, files in os.walk(self.whole_path):
             for file in files:
                 if ".jpeg" in file.lower() or ".png" in file.lower() or ".jpg" in file.lower():
                     filepath = os.path.join(subdir, file)
@@ -333,9 +334,9 @@ class MatchingNetworkLoader(object):
                  num_samples_per_class, train_val_test_split,
                  samples_per_iter=1, num_workers=4, reverse_channels=False, seed=100, labels_as_int=False):
 
-        self.zip_dir = "datasets/{}.zip".format(name)
-        self.data_folder_dir = "datasets/{}".format(name)
-        self.datasets_dir = "datasets/"
+        self.zip_dir = "{}/{}.zip".format(data_path, name)
+        self.data_folder_dir = "{}/{}".format(data_path, name)
+        self.datasets_dir = "{}/"
         self.num_of_gpus = num_of_gpus
         self.batch_size = batch_size
         self.samples_per_iter = samples_per_iter

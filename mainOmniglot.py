@@ -6,8 +6,8 @@ import os
 batch_size = 16
 fce = True
 classes_per_set = 5005
-classes_per_set = 2
-samples_per_class = 3
+# classes_per_set = 2
+samples_per_class = 1
 channels = 1
 # Training setup
 total_epochs = 100
@@ -15,20 +15,20 @@ total_train_batches = 1000
 total_val_batches = 250
 total_test_batches = 500
 best_val_acc = 0.0
-# try:
-#     os.listdir('/root')
-#     rootpath = '/root/palm/DATA/whale'
-# except PermissionError:
-#     rootpath = '/media/palm/data/whale'
+try:
+    os.listdir('/root')
+    rootpath = '/root/palm/DATA/whale'
+except PermissionError:
+    rootpath = '/media/palm/data/whale'
 name = 'newwhaled'
-rootpath = '/media/palm/PyCharmProjects/DATA/cat_vs_dog'
-name = 'train_val'
+# rootpath = '/media/palm/PyCharmProjects/DATA/cat_vs_dog'
+# name = 'train_val'
 
 data = FolderDatasetLoader(num_of_gpus=1, batch_size=batch_size, image_height=28, image_width=28,
                            image_channels=3,
                            train_val_test_split=(0.7, 0.2, 0.1),
                            samples_per_iter=1, num_workers=4,
-                           data_path="datasets/cat-dog", name="cat-dog",
+                           data_path=rootpath, name=name,
                            indexes_of_folders_indicating_class=[-2, -3], reset_stored_filepaths=False,
                            num_samples_per_class=samples_per_class,
                            num_classes_per_set=classes_per_set, label_as_int=False)
