@@ -149,6 +149,7 @@ class MatchingNetwork(nn.Module):
         :param image_size:
         """
         super(MatchingNetwork, self).__init__()
+        self.acc = True
         self.batch_size = batch_size
         self.keep_prob = keep_prob
         self.num_channels = num_channels
@@ -161,7 +162,11 @@ class MatchingNetwork(nn.Module):
         self.dn = DistanceNetwork()
         self.classify = AttentionalClassify()
         if self.fce:
-            self.lstm = BidirectionalLSTM(layer_size=[32], batch_size=self.batch_size, vector_dim=self.g.outSize,use_cuda=use_cuda)
+            self.lstm = BidirectionalLSTM(layer_size=[32], batch_size=self.batch_size, vector_dim=self.g.outSize, use_cuda=use_cuda)
+
+    def train(self, mode=True):
+        super().train(mode)
+        self.acc = True
 
     def forward(self, support_set_images, support_set_y_one_hot, target_image, target_y):
         """
@@ -197,5 +202,6 @@ class MatchingNetwork(nn.Module):
         values, indices = preds.max(1)
         accuracy = torch.mean((indices.squeeze() == target_y).float())
         crossentropy_loss = F.cross_entropy(preds, target_y.long())
-
-        return accuracy, crossentropy_loss
+        if self.acc:
+            return accuracy, crossentropy_loss
+        return preds

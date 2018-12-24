@@ -34,7 +34,7 @@ data = FolderDatasetLoader(num_of_gpus=1, batch_size=batch_size, image_height=28
                            num_classes_per_set=classes_per_set, label_as_int=False)
 obj_oneShotBuilder = OmniglotBuilder(data)
 obj_oneShotBuilder.build_experiment(batch_size=batch_size, num_channels=3, lr=1e-3, image_size=28, classes_per_set=classes_per_set,
-                                    samples_per_class=1, keep_prob=0.0, fce=True, optim="adam", weight_decay=0,
+                                    samples_per_class=1, keep_prob=0.0, fce=False, optim="adam", weight_decay=0,
                                     use_cuda=True)
 
 with tqdm.tqdm(total=total_train_batches) as pbar_e:
