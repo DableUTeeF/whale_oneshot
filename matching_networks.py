@@ -6,20 +6,43 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 
-def convLayer(in_channels, out_channels, keep_prob=0.0):
-    """3*3 convolution with padding,ever time call it the output size become half"""
-    cnn_seq = nn.Sequential(
-        nn.Conv2d(in_channels, out_channels, 3, 1, 1),
-        nn.ReLU(True),
-        nn.BatchNorm2d(out_channels),
-        nn.MaxPool2d(kernel_size=2, stride=2),
-        nn.Dropout(keep_prob)
-    )
-    return cnn_seq
+class ConvBlock(nn.Module):
+    def __init__(self, in_ch, out_ch, last_relu, stride=1):
+        super().__init__()
+        self.conv1 = nn.Conv2d(in_ch, out_ch, kernel_size=(3, 3), padding=(1, 1), stride=stride)
+        self.bn1 = nn.BatchNorm2d(out_ch)
+        self.conv2 = nn.Conv2d(out_ch, out_ch, kernel_size=(3, 3), padding=(1, 1))
+        self.bn2 = nn.BatchNorm2d(out_ch)
+        self.last_relu = last_relu
+
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = F.relu(x)
+        x = self.conv2(x)
+        x = self.bn2(x)
+        if self.last_relu:
+            x = F.relu(x)
+        return x
+
+
+class ResBlock(nn.Module):
+    def __init__(self, in_ch, out_ch):
+        super().__init__()
+        self.conv1 = ConvBlock(in_ch, out_ch, False)
+        self.res1 = nn.Conv2d(in_ch, out_ch, 3, stride=2, padding=1)
+        self.bn1 = nn.BatchNorm2d(out_ch)
+
+    def forward(self, x):
+        y = self.conv1(x)
+        y = F.max_pool2d(y, (3, 3), (2, 2), (1, 1))
+        x = self.res1(x)
+        y += x
+        return y
 
 
 class Classifier(nn.Module):
-    def __init__(self, layer_size=64, num_channels=1, keep_prob=1.0, image_size=28):
+    def __init__(self, num_channels=1):
         super(Classifier, self).__init__()
         """
         Build a CNN to produce embeddings
@@ -28,13 +51,10 @@ class Classifier(nn.Module):
         :param keep_prob:
         :param image_size:
         """
-        self.layer1 = convLayer(num_channels, layer_size, keep_prob)
-        self.layer2 = convLayer(layer_size, layer_size, keep_prob)
-        self.layer3 = convLayer(layer_size, layer_size, keep_prob)
-        self.layer4 = convLayer(layer_size, layer_size, keep_prob)
-
-        finalSize = int(math.floor(image_size / (2 * 2 * 2 * 2)))
-        self.outSize = finalSize * finalSize * layer_size
+        self.conv1 = ConvBlock(num_channels, 32, True, stride=2)
+        self.res1 = ResBlock(32, 64)
+        self.res2 = ResBlock(64, 128)
+        self.res3 = ResBlock(128, 256)
 
     def forward(self, image_input):
         """
@@ -42,10 +62,10 @@ class Classifier(nn.Module):
         :param image_input:
         :return:
         """
-        x = self.layer1(image_input)
-        x = self.layer2(x)
-        x = self.layer3(x)
-        x = self.layer4(x)
+        x = self.conv1(image_input)
+        x = self.res1(x)
+        x = self.res2(x)
+        x = self.res3(x)
         x = x.view(x.size()[0], -1)
         return x
 
@@ -158,7 +178,7 @@ class MatchingNetwork(nn.Module):
         self.num_classes_per_set = num_classes_per_set
         self.num_samples_per_class = num_samples_per_class
         self.image_size = image_size
-        self.g = Classifier(layer_size=64, num_channels=num_channels, keep_prob=keep_prob, image_size=image_size)
+        self.g = Classifier(num_channels=num_channels)
         self.dn = DistanceNetwork()
         self.classify = AttentionalClassify()
         if self.fce:
@@ -181,12 +201,12 @@ class MatchingNetwork(nn.Module):
         encoded_images = []
         for i in np.arange(support_set_images.size(1)):
             gen_encode = self.g(support_set_images[:, i, :, :])
-            encoded_images.append(gen_encode)
+            encoded_images.append(gen_encode.cpu())
 
         # produce embeddings for target images
         gen_encode = self.g(target_image)
-        encoded_images.append(gen_encode)
-        output = torch.stack(encoded_images)
+        encoded_images.append(gen_encode.cpu())
+        output = torch.stack(encoded_images).cuda()
 
         # use fce?
         # if self.fce:
