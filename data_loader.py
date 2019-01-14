@@ -62,6 +62,7 @@ class MatchingNetworkDatasetParallel(Dataset):
         self.label_set = self.get_label_set()
         self.data_length = {name: np.sum([len(self.datasets[name][key])
                                           for key in self.datasets[name]]) for name in self.datasets.keys()}
+        self.curidx = 0
 
         print("data", self.data_length)
         # print(self.datasets)
@@ -182,7 +183,7 @@ class MatchingNetworkDatasetParallel(Dataset):
     def load_image(self, image_path, channels):
 
         image = cv2.imread(image_path)[:, :, :channels]
-        image = cv2.resize(image, dsize=(self.image_height, self.image_width))
+        image = cv2.resize(image, dsize=(self.image_width, self.image_height, ))
 
         if channels == 1:
             image = np.expand_dims(image, axis=2)
@@ -253,7 +254,10 @@ class MatchingNetworkDatasetParallel(Dataset):
         :param dataset_name: The name of the set to use, e.g. "train", "val" etc
         :return: A data batch
         """
-        rng = np.random.RandomState(seed)
+        try:
+            rng = np.random.RandomState(seed)
+        except ValueError:
+            rng = np.random.RandomState(2007)
         selected_classes = rng.choice(list(self.dataset_size_dict[dataset_name].keys()),
                                       size=self.num_classes_per_set, replace=False)
         target_class = rng.choice(selected_classes, size=1, replace=False)[0]
@@ -326,6 +330,10 @@ class MatchingNetworkDatasetParallel(Dataset):
 
     def reset_seed(self):
         self.seed = self.init_seed
+
+    def __next__(self):
+        self.curidx += 1
+        return self[self.curidx-1]
 
 
 class MatchingNetworkLoader(object):

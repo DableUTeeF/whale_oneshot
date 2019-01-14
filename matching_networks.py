@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import math
 import numpy as np
 import torch.nn.functional as F
 from torch.autograd import Variable
@@ -41,6 +40,64 @@ class ResBlock(nn.Module):
         return y
 
 
+class BasicBlock(nn.Module):
+    expansion = 1
+
+    def __init__(self, in_planes, planes, stride=1):
+        super(BasicBlock, self).__init__()
+        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(planes)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(planes)
+
+        self.shortcut = nn.Sequential()
+        if stride != 1 or in_planes != self.expansion * planes:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(in_planes, self.expansion * planes, kernel_size=1, stride=stride, bias=False),
+                nn.BatchNorm2d(self.expansion * planes)
+            )
+
+    def forward(self, x):
+        out = self.bn1(self.conv1(x))
+        out = F.relu(out)
+        out = self.bn2(self.conv2(out))
+        out = F.relu(out)
+        out += self.shortcut(x)
+        out = out
+        return out
+
+
+class ResNet(nn.Module):
+    def __init__(self, block=BasicBlock, num_blocks=(6, 6, 6)):
+        super(ResNet, self).__init__()
+        self.in_planes = 64
+        self.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
+        self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=2)
+        self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=2)
+        self.linear = nn.Linear(1024, 64)
+
+    def _make_layer(self, block, planes, num_blocks, stride):
+        strides = [stride] + [1] * (num_blocks - 1)
+        layers = []
+        for stride in strides:
+            layers.append(block(self.in_planes, planes, stride))
+            self.in_planes = planes * block.expansion
+        return nn.Sequential(*layers)
+
+    def forward(self, x):
+        out = self.bn1(self.conv1(x))
+        out = F.relu(out)
+        out = self.layer1(out)
+        out = self.layer2(out)
+        out = self.layer3(out)
+        out = F.avg_pool2d(out, 4)
+        out = out.view(out.size(0), -1)
+        out = self.linear(out)
+        return out
+
+
 class Classifier(nn.Module):
     def __init__(self, num_channels=1):
         super(Classifier, self).__init__()
@@ -51,7 +108,7 @@ class Classifier(nn.Module):
         :param keep_prob:
         :param image_size:
         """
-        self.conv1 = ConvBlock(num_channels, 32, True, stride=2)
+        self.conv1 = ConvBlock(num_channels, 32, True, stride=1)
         self.res1 = ResBlock(32, 64)
         self.res2 = ResBlock(64, 128)
         self.res3 = ResBlock(128, 256)
@@ -114,9 +171,9 @@ class DistanceNetwork(nn.Module):
         return similarities.t()
 
 
-class BidirectionalLSTM(nn.Module):
+class g_BidirectionalLSTM(nn.Module):
     def __init__(self, layer_size, batch_size, vector_dim, use_cuda):
-        super(BidirectionalLSTM, self).__init__()
+        super(g_BidirectionalLSTM, self).__init__()
         """
         Initial a muti-layer Bidirectional LSTM
         :param layer_size: a list of each layer'size
@@ -134,11 +191,15 @@ class BidirectionalLSTM(nn.Module):
 
     def init_hidden(self, use_cuda):
         if use_cuda:
-            return (Variable(torch.zeros(self.lstm.num_layers * 2, self.batch_size, self.lstm.hidden_size), requires_grad=False).cuda(),
-                    Variable(torch.zeros(self.lstm.num_layers * 2, self.batch_size, self.lstm.hidden_size), requires_grad=False).cuda())
+            return (Variable(torch.zeros(self.lstm.num_layers * 2, self.batch_size, self.lstm.hidden_size),
+                             requires_grad=False).cuda(),
+                    Variable(torch.zeros(self.lstm.num_layers * 2, self.batch_size, self.lstm.hidden_size),
+                             requires_grad=False).cuda())
         else:
-            return (Variable(torch.zeros(self.lstm.num_layers * 2, self.batch_size, self.lstm.hidden_size), requires_grad=False),
-                    Variable(torch.zeros(self.lstm.num_layers * 2, self.batch_size, self.lstm.hidden_size), requires_grad=False))
+            return (Variable(torch.zeros(self.lstm.num_layers * 2, self.batch_size, self.lstm.hidden_size),
+                             requires_grad=False),
+                    Variable(torch.zeros(self.lstm.num_layers * 2, self.batch_size, self.lstm.hidden_size),
+                             requires_grad=False))
 
     def repackage_hidden(self, h):
         """Wraps hidden states in new Variables, to detach them from their history."""
@@ -149,8 +210,84 @@ class BidirectionalLSTM(nn.Module):
 
     def forward(self, inputs):
         # self.hidden = self.init_hidden(self.use_cuda)
-        self.hidden = self.repackage_hidden(self.hidden)
+        # self.hidden = self.repackage_hidden(self.hidden)
         output, self.hidden = self.lstm(inputs, self.hidden)
+        return output
+
+
+class f_BidirectionalLSTM(nn.Module):
+    def __init__(self, layer_size, batch_size, vector_dim, use_cuda, k=10):
+        super(f_BidirectionalLSTM, self).__init__()
+        self.batch_size = batch_size
+        self.hidden_size = layer_size[0]
+        self.vector_dim = vector_dim
+        self.num_layer = len(layer_size)
+        self.use_cuda = use_cuda
+        self.lstm = nn.LSTM(input_size=self.vector_dim, num_layers=self.num_layer, hidden_size=self.hidden_size,
+                            bidirectional=True)
+        self.hidden = self.init_hidden(self.use_cuda)
+        self.k = k
+        self.attentional_softmax = nn.Linear(vector_dim, vector_dim)
+        self.reuse = False
+
+    def init_hidden(self, use_cuda):
+        if use_cuda:
+            return (
+            Variable(torch.zeros(self.lstm.num_layers * 2, 1, self.lstm.hidden_size), requires_grad=False).cuda(),
+            Variable(torch.zeros(self.lstm.num_layers * 2, 1, self.lstm.hidden_size), requires_grad=False).cuda())
+        else:
+            return (Variable(torch.zeros(self.lstm.num_layers * 2, 1, self.lstm.hidden_size), requires_grad=False),
+                    Variable(torch.zeros(self.lstm.num_layers * 2, 1, self.lstm.hidden_size), requires_grad=False))
+
+    def repackage_hidden(self, h):
+        """Wraps hidden states in new Variables, to detach them from their history."""
+        if type(h) == Variable:
+            return Variable(h.data)
+        else:
+            return tuple(self.repackage_hidden(v) for v in h)
+
+    def forward(self, support_set_embeddings, target_set_embeddings, K=None):
+        """"""
+        '''
+        def __call__(self, support_set_embeddings, target_set_embeddings, K, training=False):
+            b, k, h_g_dim = support_set_embeddings.get_shape().as_list()
+            b, h_f_dim = target_set_embeddings.get_shape().as_list()
+            with tf.variable_scope(self.name, reuse=self.reuse):
+                fw_lstm_cells_encoder = rnn.LSTMCell(num_units=self.layer_size, activation=tf.nn.tanh)
+                attentional_softmax = tf.ones(shape=(b, k)) * (1.0/k)
+                h = tf.zeros(shape=(b, h_g_dim))
+                c_h = (h, h)
+                c_h = (c_h[0], c_h[1] + target_set_embeddings)
+                for i in range(K):
+                    attentional_softmax = tf.expand_dims(attentional_softmax, axis=2)
+                    attented_features = support_set_embeddings * attentional_softmax
+                    attented_features_summed = tf.reduce_sum(attented_features, axis=1)
+                    c_h = (c_h[0], c_h[1] + attented_features_summed)
+                    x, h_c = fw_lstm_cells_encoder(inputs=target_set_embeddings, state=c_h)
+                    attentional_softmax = tf.layers.dense(x, units=k, activation=tf.nn.softmax, reuse=self.reuse)
+                    self.reuse = True
+
+            outputs = x
+            print("out shape", tf.stack(outputs, axis=0).get_shape().as_list())
+            self.reuse = True
+            self.variables = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=self.name)
+            print(self.variables)
+            return outputs
+        '''
+        if K is None:
+            K = self.k
+        k, b, h_g_dim = support_set_embeddings.shape
+        b, h_f_dim = target_set_embeddings.shape
+        attentional_softmax = torch.ones((k, b)) * 1. / k
+        c_h = self.hidden
+        c_h = (c_h[0], c_h[1] + target_set_embeddings)
+        for i in range(K):
+            attentional_softmax = attentional_softmax.unsqueeze(2).cuda()
+            attented_features = support_set_embeddings * attentional_softmax
+            attented_features_summed = torch.sum(attented_features, dim=0)
+            c_h = (c_h[0], c_h[1] + attented_features_summed)
+            output, self.hidden = self.lstm(target_set_embeddings.unsqueeze(1), c_h[1])
+            attentional_softmax = self.attentional_softmax(output)
         return output
 
 
@@ -181,8 +318,6 @@ class MatchingNetwork(nn.Module):
         self.g = Classifier(num_channels=num_channels)
         self.dn = DistanceNetwork()
         self.classify = AttentionalClassify()
-        if self.fce:
-            self.lstm = BidirectionalLSTM(layer_size=[32], batch_size=self.batch_size, vector_dim=self.g.outSize, use_cuda=use_cuda)
 
     def train(self, mode=True):
         super().train(mode)

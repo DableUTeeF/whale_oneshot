@@ -146,7 +146,15 @@ class OmniglotBuilder:
 
         with tqdm.tqdm(total=total_val_batches) as pbar:
             for i in range(total_val_batches):
-                x_support_set, y_support_set, x_target, y_target = self.data.get_val_batch(False)
+                x_support_set, x_target, y_support_set, y_target = next(self.data.get_train_batches())
+                x_support_set = x_support_set[0][0]
+                x_target = x_target[0][0]
+                y_support_set = y_support_set[0][0]
+                y_target = y_target[0][0]
+                s = x_support_set.shape
+                x_support_set = np.reshape(x_support_set, (s[0], s[1]*s[2], s[3], s[4], s[5]))
+                s = y_support_set.shape
+                y_support_set = np.reshape(y_support_set, (s[0], s[1]*s[2]))
                 x_support_set = Variable(torch.from_numpy(x_support_set)).float()
                 y_support_set = Variable(torch.from_numpy(y_support_set), requires_grad=False).long()
                 x_target = Variable(torch.from_numpy(x_target)).float()
@@ -196,7 +204,15 @@ class OmniglotBuilder:
 
         with tqdm.tqdm(total=total_test_batches) as pbar:
             for i in range(total_test_batches):
-                x_support_set, y_support_set, x_target, y_target = self.data.get_test_batch(False)
+                x_support_set, x_target, y_support_set, y_target = next(self.data.get_train_batches())
+                x_support_set = x_support_set[0][0]
+                x_target = x_target[0][0]
+                y_support_set = y_support_set[0][0]
+                y_target = y_target[0][0]
+                s = x_support_set.shape
+                x_support_set = np.reshape(x_support_set, (s[0], s[1]*s[2], s[3], s[4], s[5]))
+                s = y_support_set.shape
+                y_support_set = np.reshape(y_support_set, (s[0], s[1]*s[2]))
                 x_support_set = Variable(torch.from_numpy(x_support_set)).float()
                 y_support_set = Variable(torch.from_numpy(y_support_set), requires_grad=False).long()
                 x_target = Variable(torch.from_numpy(x_target)).float()
