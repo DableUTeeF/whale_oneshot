@@ -8,6 +8,7 @@ from torch.backends import cudnn
 cudnn.benchmark = True
 from keras.utils import data_utils
 from torch.autograd import Variable
+import os
 
 
 class Builder:
@@ -34,7 +35,10 @@ class Builder:
         self.g.cuda()
         self.total_train_iter = 0
         self.optimizer = self._create_optimizer(self.g, self.lr)
-        self.scheduler = ReduceLROnPlateau(self.optimizer, 'max', verbose=True)
+        self.scheduler = ReduceLROnPlateau(self.optimizer,
+                                           'min',
+                                           verbose=True,
+                                           patience=5)
 
     def run_training_epoch(self, batch_size, num_worker):
         total_c_loss = 0.0
@@ -64,9 +68,9 @@ class Builder:
                 pbar.update(1)
                 # self.total_train_iter+=1
 
-            self.scheduler.step(total_accuracy)
             total_c_loss = total_c_loss / total_train_batches
             total_accuracy = total_accuracy / total_train_batches
+            self.scheduler.step(total_c_loss)
             return total_c_loss, total_accuracy
 
     def matchNet(self, x_support_set, y_support_set_one_hot, x_target, y_target):
@@ -173,9 +177,9 @@ class Builder:
                 pbar.update(1)
                 # self.total_train_iter+=1
 
-            self.scheduler.step(total_accuracy)
             total_c_loss = total_c_loss / total_train_batches
             total_accuracy = total_accuracy / total_train_batches
+            self.scheduler.step(total_c_loss)
             return total_c_loss, total_accuracy
 
     def validate_generator(self, batch_size, num_worker):
@@ -222,3 +226,19 @@ class Builder:
         x_t = Variable(torch.from_numpy(x_target)).float()
         y_t = Variable(torch.from_numpy(y_target), requires_grad=False).long()
         return x_s, y_s, x_t, y_t
+
+    def save_weights(self, path):
+        state = {
+            'optimizer': self.optimizer.state_dict(),
+            'net': self.g.state_dict(),
+        }
+        directory = os.path.split(path)[0]
+        if not os.path.isdir(directory):
+            os.mkdir(directory)
+        torch.save(state, path)
+
+    def load_weights(self, path):
+        checkpoint = torch.load(path)
+        # start_epoch = checkpoint['epoch']
+        self.g.load_state_dict(checkpoint['net'])
+        self.optimizer.load_state_dict(checkpoint['optimizer'])

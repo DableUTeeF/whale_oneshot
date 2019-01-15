@@ -24,16 +24,12 @@ try:
 except PermissionError:
     rootpath = '/media/palm/data/whale'
 name = 'morethan7/train'
-# rootpath = '/media/palm/PyCharmProjects/DATA/cat_vs_dog'
-# name = 'train_val'
+weightspath = 'checkpoints/resnet-1.h5'
 
 data = Generator(os.path.join(rootpath, name))
-obj_oneShotBuilder = Builder(data, 'sgd', 0.01)
+obj_oneShotBuilder = Builder(data, 'sgd', 0.001)
 
 for e in range(total_epochs):
     total_c_loss, total_accuracy = obj_oneShotBuilder.train_generator(batch_size, 2)
     print("Epoch {}: train_loss:{} train_accuracy:{}".format(e, total_c_loss, total_accuracy))
-    # total_val_c_loss, total_val_accuracy = obj_oneShotBuilder.validate_generator(batch_size, 1)
-    # print("Epoch {}: val_loss:{} val_accuracy:{}".format(e, total_val_c_loss, total_val_accuracy))
-    # if total_val_accuracy > best_val_acc:
-    #     best_val_acc = total_val_accuracy
+    obj_oneShotBuilder.save_weights(weightspath)

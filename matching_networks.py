@@ -90,6 +90,7 @@ class ResNet(nn.Module):
     def forward(self, x):
         out = self.bn1(self.conv1(x))
         out = F.relu(out)
+        out = F.max_pool2d(out, kernel_size=(3, 3), padding=(1, 1))
         out = self.layer1(out)
         out = self.layer2(out)
         out = self.layer3(out)
