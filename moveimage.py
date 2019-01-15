@@ -1,7 +1,7 @@
 import os
 import shutil
 
-csv = open('train.csv', 'r').readlines()
+csv = open('misc/train.csv', 'r').readlines()
 lists = []
 train_list = {}
 test_list = {}
@@ -29,10 +29,10 @@ dests = ['train']
 lists = [all_list]
 try:
     os.listdir('/root')
-    rootpath = '/root/palm/DATA/whale/morethan7'
+    rootpath = '/root/palm/DATA/whale/2to7'
     sourcepath = '/root/palm/DATA/whale/train'
 except PermissionError:
-    rootpath = '/media/palm/data/whale/morethan7'
+    rootpath = '/media/palm/data/whale/2to7'
     sourcepath = '/media/palm/data/whale/train'
 if not os.path.isdir(rootpath):
     os.mkdir(rootpath)
@@ -43,7 +43,7 @@ for i in range(1):
     for key in lists[i]:
         # if key == 'new_whale':
         #     continue
-        if len(lists[i][key]) < 8:
+        if len(lists[i][key]) > 7 or len(lists[i][key]) < 2:
             continue
         for idx, item in enumerate(lists[i][key]):
             if idx > 100:
