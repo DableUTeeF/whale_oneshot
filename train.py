@@ -32,10 +32,10 @@ obj_oneShotBuilder = Builder(data, 'sgd', 0.01)
 
 with tqdm.tqdm(total=total_train_batches) as pbar_e:
     for e in range(total_epochs):
-        total_c_loss, total_accuracy = obj_oneShotBuilder.train_generator(batch_size, 1)
+        total_c_loss, total_accuracy = obj_oneShotBuilder.train_generator(batch_size, 2)
         print("Epoch {}: train_loss:{} train_accuracy:{}".format(e, total_c_loss, total_accuracy))
-        total_val_c_loss, total_val_accuracy = obj_oneShotBuilder.validate_generator(batch_size, 1)
-        print("Epoch {}: val_loss:{} val_accuracy:{}".format(e, total_val_c_loss, total_val_accuracy))
-        if total_val_accuracy > best_val_acc:
-            best_val_acc = total_val_accuracy
+        # total_val_c_loss, total_val_accuracy = obj_oneShotBuilder.validate_generator(batch_size, 1)
+        # print("Epoch {}: val_loss:{} val_accuracy:{}".format(e, total_val_c_loss, total_val_accuracy))
+        # if total_val_accuracy > best_val_acc:
+        #     best_val_acc = total_val_accuracy
         pbar_e.update(1)

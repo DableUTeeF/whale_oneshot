@@ -26,8 +26,8 @@ class Builder:
         self.g = matching_networks.ResNet()
         self.dn = matching_networks.DistanceNetwork()
         self.classify = matching_networks.AttentionalClassify()
-        self.g_lstm = matching_networks.g_BidirectionalLSTM((32, 32, 512), 32, 64, True).cuda()
-        self.f_lstm = matching_networks.f_BidirectionalLSTM((64, 50, 50), 32, 64, True).cuda()
+        self.g_lstm = matching_networks.g_BidirectionalLSTM((32, 32, 512), 32, 1024, True).cuda()
+        self.f_lstm = matching_networks.f_BidirectionalLSTM((64, 50, 50), 32, 1024, True).cuda()
         # self.matchNet = MatchingNetwork(keep_prob, batch_size, num_channels, self.lr, fce, classes_per_set,
         #                                 samples_per_class, image_size, self.isCuadAvailable & self.use_cuda)
         self.total_iter = 0
@@ -76,20 +76,25 @@ class Builder:
             for j in np.arange(x_support_set.size(1)):
                 try:
                     gen_encode = self.g(x_support_set[:, j, :, :].cuda())
-                    gen_encode = self.g_lstm(gen_encode.unsqueeze(0)).squeeze(0).cpu()
+                    # gen_encode = self.g_lstm(gen_encode.unsqueeze(0)).squeeze(0).cpu()
                 except RuntimeError as e:
                     raise RuntimeError(f'j={j}: {e}')
                 encoded_images.append(gen_encode.cpu())
-        f_encode = self.g(x_target.cuda())
+        f_encoded_image = self.g(x_target.cuda())
         output = torch.stack(encoded_images)
-        f_encoded_image = self.f_lstm(output.cuda(), f_encode.cuda())
+        # f_encoded_image = self.f_lstm(output.cuda(), f_encoded_image.cuda())
         # gen_encode = self.g_lstm(gen_encode.unsqueeze(0)).squeeze(0).cpu()
         # encoded_images.append(gen_encode.cpu())
-        similarites = self.dn(support_set=output, input_image=f_encoded_image)
-        preds = self.classify(similarites, support_set_y=y_support_set_one_hot)
+        similarites = self.dn(support_set=output.cuda(), input_image=f_encoded_image.cuda())
+        preds = self.classify(similarites, support_set_y=y_support_set_one_hot.cuda())
         values, indices = preds.max(1)
-        acc = torch.mean((indices.squeeze() == y_target).float())
-        c_loss = F.cross_entropy(preds, y_target.long())
+        acc = torch.mean((indices.squeeze() == y_target.cuda()).float())
+        try:
+            c_loss = F.cross_entropy(preds.cuda(), y_target.long().cuda())
+        except RuntimeError as e:
+            print(y_target.detach().numpy())
+            # print(preds.cpu().detach().numpy())
+            raise RuntimeError(e)
         return acc, c_loss
 
     def _create_optimizer(self, model, lr):
@@ -139,7 +144,7 @@ class Builder:
         train_enqueuer = data_utils.GeneratorEnqueuer(traindata)
         train_enqueuer.start(workers=num_worker, max_queue_size=batch_size*2)
         train_generator = train_enqueuer.get()
-        total_train_batches = 50
+        total_train_batches = len(traindata)
         with tqdm.tqdm(total=total_train_batches) as pbar:
             for i in range(total_train_batches):
                 # (x_support_set, y_support_set, x_target, y_target) = next(train_generator)
@@ -162,6 +167,7 @@ class Builder:
 
                 total_c_loss += c_loss.data[0]
                 total_accuracy += acc.data[0]
+                i += 1
                 iter_out = f"loss: {total_c_loss / i:.{3}}, acc: {total_accuracy / i:.{3}}"
                 pbar.set_description(iter_out)
                 pbar.update(1)
@@ -210,19 +216,9 @@ class Builder:
                 return total_c_loss, total_accuracy
 
     def numpy2tensor(self, batch):
-        batch_size = batch.shape[0]
-        x_s = np.zeros((batch_size, self.classes_per_set * 10, 32, 32, 3))
-        x_t = np.zeros((batch_size, 32, 32, 3))
-        y_s = np.zeros((batch_size, self.classes_per_set * 10, self.classes_per_set))
-        y_t = np.zeros((batch_size,))
-        for b in range(batch_size):
-            x_support_set, y_support_set, x_target, y_target = batch[b]
-            x_s[b] = x_support_set
-            y_s[b] = y_support_set
-            x_t[b] = x_target
-            y_t[b] = y_target
-        x_s = Variable(torch.from_numpy(x_s)).float()
-        y_s = Variable(torch.from_numpy(y_s), requires_grad=False).long()
-        x_t = Variable(torch.from_numpy(x_t)).float()
-        y_t = Variable(torch.from_numpy(y_t), requires_grad=False).long()
+        x_support_set, y_support_set, x_target, y_target = batch
+        x_s = Variable(torch.from_numpy(x_support_set)).float()
+        y_s = Variable(torch.from_numpy(y_support_set), requires_grad=False).long()
+        x_t = Variable(torch.from_numpy(x_target)).float()
+        y_t = Variable(torch.from_numpy(y_target), requires_grad=False).long()
         return x_s, y_s, x_t, y_t

@@ -65,7 +65,7 @@ class Generator:
         x_support = np.zeros((self.batch_size, self.cls_per_batch, self.im_per_cls, self.imsize[1], self.imsize[0], 3), dtype='uint8')
         y_support = np.zeros((self.batch_size, self.cls_per_batch, self.im_per_cls, self.cls_per_batch), dtype='uint8')
         x_target = np.zeros((self.batch_size, self.imsize[1], self.imsize[0], 3), dtype='uint8')
-        y_target = np.zeros((self.batch_size, 1), dtype='uint8')
+        y_target = np.zeros((self.batch_size, ), dtype='uint8')
         for b in range(self.batch_size):
             # support set
             selected_idxs = []
@@ -74,8 +74,16 @@ class Generator:
                 for k in range(self.im_per_cls):
                     randomed_idx = np.random.randint(0, len(self.dataset) - 1)
                     randomed_cls = self.class_list[self.imidx[randomed_idx]]
+                    # print(self.class_list)
+                    passed = 0
                     while randomed_idx in selected_idxs or randomed_cls in seen_cls or randomed_cls == 'new_whale':
                         randomed_idx = np.random.randint(0, len(self.dataset) - 1)
+                        randomed_cls = self.class_list[self.imidx[randomed_idx]]
+                        passed += 1
+                        if passed > 100:
+                            print(passed, randomed_idx, randomed_cls)
+                        if passed > 10000:
+                            raise Exception('Something went wrong')
                     selected_idxs.append(randomed_idx)
                     seen_cls.append(randomed_cls)
                     x = self.dataset[self.imidx[randomed_idx]]
@@ -87,6 +95,7 @@ class Generator:
             randomed_cls = self.class_list[self.imidx[idx]]
             while idx in selected_idxs or randomed_cls not in seen_cls:
                 idx = np.random.randint(0, len(self.dataset) - 1)
+                randomed_cls = self.class_list[self.imidx[idx]]
             x = self.dataset[self.imidx[idx]]
             y = seen_cls.index(self.class_list[self.imidx[idx]])
             x_target[b] = x

@@ -1,0 +1,41 @@
+1077171 1745 w_9b5109b
+1077172 5949 w_9b5109b
+1077173 2323 w_9b5109b
+1077174 5553 w_9b5109b
+Exception ignored in: <module 'threading' from '/root/palm/miniconda3/lib/python3.6/threading.py'>
+1077175 3422 w_9b5109b
+1077176 40 w_9b5109b
+1077177 2843 w_9b5109b
+1077178 2786 w_9b5109b
+1077179 3559 w_9b5109b
+1077180 1272 w_9b5109b
+1077181 4422 w_9b5109b
+Traceback (most recent call last):
+1077182 5448 w_9b5109b
+  File "/root/palm/miniconda3/lib/python3.6/threading.py", line 1294, in _shutdown
+1077183 1836 w_9b5109b
+1077184 4495 w_9b5109b
+1077185 2618 w_9b5109b
+1077186 1266 w_9b5109b
+    t.join()
+  File "/root/palm/miniconda3/lib/python3.6/threading.py", line 1056, in join
+1077187 5847 w_9b5109b
+1077188 548 w_9b5109b
+1077189 1782 w_9b5109b
+    self._wait_for_tstate_lock()
+1077190 214 w_9b5109b
+  File "/root/palm/miniconda3/lib/python3.6/threading.py", line 1072, in _wait_for_tstate_lock
+1077191 1114 w_9b5109b
+1077192 483 w_9b5109b
+1077193 4639 w_9b5109b
+1077194 3539 w_9b5109b
+1077195 2855 w_9b5109b
+1077196 4607 w_9b5109b
+1077197 2574 w_9b5109b
+1077198 2677 w_9b5109b
+1077199 2998 w_9b5109b
+    elif lock.acquire(block, timeout):
+1077200 3756 w_9b5109b
+KeyboardInterrupt
+1077201 4140 w_9b5109b
+^C^CSegmentation fault (core dumped)
