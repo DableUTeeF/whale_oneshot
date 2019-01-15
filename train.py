@@ -1,6 +1,5 @@
 from datagen import Generator
 from networks import Builder
-import tqdm
 import os
 import warnings
 warnings.simplefilter("ignore")
