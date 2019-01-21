@@ -141,6 +141,7 @@ class Builder:
                     acc, c_loss = self.matchNet(x_support_set, y_support_set, x_target, y_target)
                     total_c_loss += c_loss.data[0]
                     total_accuracy += acc.data[0]
+                    i += 1
                     iter_out = f"v_loss: {total_c_loss / i:.{3}}, v_acc: {total_accuracy / i:.{3}}"
                     pbar.set_description(iter_out)
                     pbar.update(1)

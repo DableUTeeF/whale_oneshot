@@ -59,13 +59,14 @@ class Generator:
             self.class_list[ls[0]] = ls[1]
 
     def __len__(self):
-        return len(self.dataset)//self.batch_size
+        return len(self.imidx)//self.batch_size
 
     def __getitem__(self, idx):
         x_support = np.zeros((self.batch_size, self.cls_per_batch, self.im_per_cls, self.imsize[1], self.imsize[0], 3), dtype='uint8')
         y_support = np.zeros((self.batch_size, self.cls_per_batch, self.im_per_cls, self.cls_per_batch), dtype='uint8')
         x_target = np.zeros((self.batch_size, self.imsize[1], self.imsize[0], 3), dtype='uint8')
         y_target = np.zeros((self.batch_size, ), dtype='uint8')
+        true_idx = idx * self.batch_size
         for b in range(self.batch_size):
             # support set
             selected_idxs = []
@@ -92,6 +93,7 @@ class Generator:
                     y_support[b, i, k, y] = 1
 
             # target set
+            idx = true_idx
             randomed_cls = self.class_list[self.imidx[idx]]
             while idx in selected_idxs or randomed_cls not in seen_cls:
                 idx = np.random.randint(0, len(self.dataset) - 1)
@@ -100,6 +102,7 @@ class Generator:
             y = seen_cls.index(self.class_list[self.imidx[idx]])
             x_target[b] = x
             y_target[b] = y
+            true_idx += 1
 
         s = x_support.shape
         x_support = np.reshape(x_support, (s[0], s[1]*s[2], s[3], s[4], s[5]))
@@ -108,5 +111,7 @@ class Generator:
         return x_support, y_support, x_target, y_target
 
     def __next__(self):
+        if self.curidx >= len(self):
+            self.curidx = 0
         self.curidx += 1
         return self[self.curidx-1]

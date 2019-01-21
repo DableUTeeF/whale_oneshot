@@ -30,9 +30,13 @@ train_data = Generator(os.path.join(rootpath, train_name), batch_size=batch_size
 obj_oneShotBuilder = Builder('sgd', 0.001)
 val_data = Generator(os.path.join(rootpath, val_name), batch_size=batch_size)
 
+# obj_oneShotBuilder.load_weights(weightspath)
+
 for e in range(total_epochs):
     print('Epoch: {}'.format(e+1))
     total_c_loss, total_accuracy = obj_oneShotBuilder.train_generator(train_data, 2)
     total_val_c_loss, total_val_accuracy = obj_oneShotBuilder.validate_generator(val_data, 2)
     print(f"train_loss: {total_c_loss:.4} train_acc: {total_accuracy:.4} val_loss: {total_val_c_loss:.4} val_acc: {total_val_accuracy: .3}")
-    obj_oneShotBuilder.save_weights(weightspath)
+    if total_val_accuracy > best_val_acc:
+        best_val_acc = total_val_accuracy
+        obj_oneShotBuilder.save_weights(weightspath)
