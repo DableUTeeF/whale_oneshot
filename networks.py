@@ -127,17 +127,18 @@ class Builder:
         val_generator = val_enqueuer.get()
         total_val_batches = len(valdata)
         with tqdm.tqdm(total=total_val_batches) as pbar:
-            for i in range(total_val_batches):
-                # (x_support_set, y_support_set, x_target, y_target) = next(train_generator)
-                batch = next(val_generator)
-                x_support_set, y_support_set, x_target, y_target = self.numpy2tensor(batch)
-                x_support_set = x_support_set.permute(0, 1, 4, 2, 3)
-                x_target = x_target.permute(0, 3, 1, 2)
-                y_support_set = y_support_set.float()
-                y_target = y_target.long()
-                x_support_set = x_support_set.float()
-                x_target = x_target.float()
-                with torch.no_grad():
+            with torch.no_grad():
+                for i in range(total_val_batches):
+                    # (x_support_set, y_support_set, x_target, y_target) = next(train_generator)
+                    batch = next(val_generator)
+                    x_support_set, y_support_set, x_target, y_target = self.numpy2tensor(batch)
+                    x_support_set = x_support_set.permute(0, 1, 4, 2, 3)
+                    x_target = x_target.permute(0, 3, 1, 2)
+                    y_support_set = y_support_set.float()
+                    y_target = y_target.long()
+                    x_support_set = x_support_set.float()
+                    x_target = x_target.float()
+                    # with torch.no_grad():
                     acc, c_loss = self.matchNet(x_support_set, y_support_set, x_target, y_target)
                     total_c_loss += c_loss.data[0]
                     total_accuracy += acc.data[0]
@@ -147,10 +148,9 @@ class Builder:
                     pbar.update(1)
                     # self.total_train_iter+=1
 
-                total_c_loss = total_c_loss / total_val_batches
-                total_accuracy = total_accuracy / total_val_batches
-                # self.scheduler.step(total_c_loss)
-                return total_c_loss, total_accuracy
+            total_c_loss = total_c_loss / total_val_batches
+            total_accuracy = total_accuracy / total_val_batches
+            return total_c_loss, total_accuracy
 
     def numpy2tensor(self, batch):
         x_support_set, y_support_set, x_target, y_target = batch

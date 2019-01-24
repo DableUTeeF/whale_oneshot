@@ -30,7 +30,7 @@ train_data = Generator(os.path.join(rootpath, train_name), batch_size=batch_size
 obj_oneShotBuilder = Builder('sgd', 0.001)
 val_data = Generator(os.path.join(rootpath, val_name), batch_size=batch_size)
 
-# obj_oneShotBuilder.load_weights(weightspath)
+obj_oneShotBuilder.load_weights('checkpoints/tmp.h5')
 
 for e in range(total_epochs):
     print('Epoch: {}'.format(e+1))
@@ -40,3 +40,4 @@ for e in range(total_epochs):
     if total_val_accuracy > best_val_acc:
         best_val_acc = total_val_accuracy
         obj_oneShotBuilder.save_weights(weightspath)
+    obj_oneShotBuilder.save_weights(weightspath+'-tmp')
